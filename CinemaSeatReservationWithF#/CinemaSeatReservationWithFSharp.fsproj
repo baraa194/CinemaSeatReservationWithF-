@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>CinemaSeatReservationWithFSharp</RootNamespace>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<!-- static content files -->
+		<None Include="init.sql">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<Content Include="appsettings.json">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+
+		<!-- MODELs first -->
+		<Compile Include="Models\Seat.fs" />
+
+		<!-- DOMAIN (pure logic) -->
+		<Compile Include="Domain\SeatLayout.fs" />
+
+		<!-- REPOSITORIES (data access) -->
+		<Compile Include="Repositories\SeatDto.fs" />
+		<Compile Include="Repositories\SeatRepository.fs" />
+		<Compile Include="Repositories\TicketRepository.fs" />
+
+		<!-- Program last (entry point) -->
+		<Compile Include="Program.fs" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>
