@@ -1,61 +1,70 @@
-﻿open System
-open System.IO
-open System.Text.RegularExpressions
-open Microsoft.Data.SqlClient
-open Microsoft.Extensions.Configuration
+﻿namespace CinemaSeatReservationWithFSharp
 
-let loadConnectionString () =
-    try
-        let config =
-            ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional = false, reloadOnChange = false)
-                .Build()
+open System
+open CinemaSeatReservationWithFSharp.Domain
+open CinemaSeatReservationWithFSharp.Repositories  
 
-        let cs = config.GetConnectionString("Default")
-        printfn "Loaded connection string: %s" cs
-        cs
-    with ex ->
-        printfn "ERROR loading connection string: %s" ex.Message
-        raise ex
+module Program =
 
-let execSqlScript (connStr:string) (scriptPath:string) =
-    if not (File.Exists scriptPath) then
-        printfn "ERROR: Script not found: %s" scriptPath
-    else
+    /// Prompt the user until they enter a valid integer seat id 
+    let rec promptSeatId () : int option =
+        printf "\nEnter seat id to book : "
+        match Console.ReadLine() with
+        | null -> None
+        | s when s.Trim().ToLower() = "q" -> None
+        | s ->
+            match Int32.TryParse(s.Trim()) with
+            | true, v -> Some v
+            | false, _ ->
+                printfn "Invalid input. Please enter a seat number or 'q'."
+                promptSeatId()
+
+    [<EntryPoint>]
+    let main argv =
         try
-            printfn "Reading SQL script..."
-            let script = File.ReadAllText(scriptPath)
+         
 
-            let batches =
-                Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline ||| RegexOptions.IgnoreCase)
-                |> Array.map (fun x -> x.Trim())
-                |> Array.filter (fun x -> x <> "")
+            
+            // Load all seats and print count
+           
+            let seats = SeatService.loadAllSeats()
+            printfn "Loaded %d seats from DB" (List.length seats)
 
-            printfn "Connecting to SQL Server..."
-            use conn = new SqlConnection(connStr)
-            conn.Open()
-            printfn "Connected!"
+            // Get summary (available, booked)
+            let (avail, booked) = SeatService.getSummary()
+            printfn "Available: %d, Booked: %d" avail booked
 
-            printfn "Executing batches (%d total)..." batches.Length
-            for i = 0 to batches.Length - 1 do
-                printfn "Executing batch %d..." (i+1)
-                use cmd = new SqlCommand(batches.[i], conn)
-                cmd.ExecuteNonQuery() |> ignore
+            // Render seat matrix
+            let matrix : byte[,] = SeatService.buildMatrix seats
+            SeatService.renderConsole matrix
 
-            printfn "All batches executed successfully."
+            // Ask user for seat id
+            match promptSeatId() with
+            | None ->
+                printfn "No seat id provided. Exiting."
+            | Some seatIdToTryCreate ->
+                // Call the service that creates ticket and returns refreshed seats
+                let (ticketOpt, refreshedAfterCreate) =
+                    SeatService.tryBookSeatAndCreateTicketService seatIdToTryCreate
+
+                match ticketOpt with
+                | Some id ->
+                    printfn "Seat %d booked and ticket created: %A" seatIdToTryCreate id
+                    let availableSeats = SeatService.getavalSaets()
+                    printfn "Available seats after booking: %d" (List.length availableSeats)
+                | None ->
+                    printfn "Failed to book seat %d (maybe already booked or doesn't exist)." seatIdToTryCreate
+                    let availableSeats = SeatService.getavalSaets()
+                    printfn "Available seats after booking: %d" (List.length availableSeats)
+
+
+          
+            printfn "\nPress any key to exit..."
+            Console.ReadKey() |> ignore
+            0
+
         with ex ->
-            printfn "ERROR executing SQL script: %s" ex.Message
-
-[<EntryPoint>]
-let main argv =
-    printfn "Starting database initialization..."
-
-    let connStr = loadConnectionString()
-
-    let scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "init.sql")
-    execSqlScript connStr scriptPath
-
-    printfn "Done. Press ENTER to exit..."
-    Console.ReadLine() |> ignore
-    0
+            printfn "Unhandled exception: %s" ex.Message
+            printfn "\nPress any key to exit..."
+            Console.ReadKey() |> ignore
+            1
