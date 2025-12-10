@@ -1,4 +1,4 @@
-﻿namespace CinemaSeatReservationWithFSharp.Domain
+﻿namespace CinemaSeatReservationWithFSharp.Services
 
 open System
 open CinemaSeatReservationWithFSharp.Repositories

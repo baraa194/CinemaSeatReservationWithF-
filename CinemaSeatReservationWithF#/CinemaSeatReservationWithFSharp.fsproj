@@ -6,19 +6,24 @@
     <RootNamespace>CinemaSeatReservationWithFSharp</RootNamespace>
   </PropertyGroup>
 	<ItemGroup>
-	
+		
+		<Compile Include="Password.fs" />
+		<Compile Include="Db.fs" />
 		<None Include="init.sql">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<Content Include="appsettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-        <Compile Include="Models\Seat.fs" />
-		<Compile Include="Db.fs" />
-        <Compile Include="Repositories\SeatDto.fs" />
+		<Compile Include="Models\User.fs" />
+		<Compile Include="Models\Role.fs" />
+		<Compile Include="Models\Seat.fs" />
+		<Compile Include="Repositories\userRepo.fs" />
+		<Compile Include="Repositories\SeatDto.fs" />
 		<Compile Include="Repositories\SeatRepository.fs" />
-		<Compile Include="Domain\TicketService.fs" />
-        <Compile Include="Domain\SeatService.fs" />
+		<Compile Include="Services\UserService.fs" />
+		<Compile Include="Services\TicketService.fs" />
+		<Compile Include="Services\SeatService.fs" />
 		<Compile Include="Program.fs" />
 	</ItemGroup>
 
