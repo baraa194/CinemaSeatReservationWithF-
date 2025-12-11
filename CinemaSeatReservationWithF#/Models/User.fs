@@ -10,7 +10,6 @@ type User = {
     PasswordHash: byte[]
     PasswordSalt: byte[]
     RoleId: int
-    RoleName: string option
     CreatedAt: DateTime
 }
 

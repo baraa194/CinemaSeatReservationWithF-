@@ -7,6 +7,7 @@ open CinemaSeatReservationWithFSharp.Repositories
 open CinemaSeatReservationWithFSharp.Db
 open CinemaSeatReservationWithFSharp.Repositories.UserRepo
 open Dapper
+open CinemaSeatReservationWithFSharp.Models
 
 module Program =
 
@@ -29,9 +30,9 @@ module Program =
                 printfn "Invalid input. Please enter a number or 'q'."
                 promptInt message
 
-    /// Register & login user
-    let testRegisterAndLogin () =
-        printfn "=== Register / Login ==="
+    /// Register a new user
+    let registerUserInteractive () =
+        printfn "=== Register ==="
         printf "Enter a username: "
         let username = Console.ReadLine()
         printf "Enter an email: "
@@ -40,8 +41,16 @@ module Program =
         let password = Console.ReadLine()
 
         match UserService.registerUser username email password with
-        | Ok newId -> printfn "✔ Registered. UserId=%d" newId
-        | Error msg -> printfn "✘ Register failed: %s" msg
+        | Ok newId -> printfn "✔ Registered. UserId=%d" newId; Some newId
+        | Error msg -> printfn "✘ Register failed: %s" msg; None
+
+    /// Login an existing user
+    let loginUserInteractive () : User option =
+        printfn "=== Login ==="
+        printf "Enter a username: "
+        let username = Console.ReadLine()
+        printf "Enter a password: "
+        let password = Console.ReadLine()
 
         match UserService.loginUser username password with
         | Success user -> printfn "✔ Logged in. Welcome %s (id=%d)" user.Username user.Id; Some user
@@ -54,25 +63,40 @@ module Program =
             //  Initialize database
             runInitSql ()
 
-            //  Register & login user
-            match testRegisterAndLogin () with
+            // Choose action
+            printfn "Choose action: [1] Register  [2] Login  [3] Continue as Guest"
+            let action =
+                match promptInt "Enter choice: " with
+                | Some v -> v
+                | None -> 3
+
+            let userOpt =
+                match action with
+                | 1 -> 
+                    registerUserInteractive () |> Option.bind (fun _ -> loginUserInteractive())
+                | 2 -> loginUserInteractive ()
+                | _ -> None
+
+            match userOpt with
             | None ->
                 printfn "Cannot continue without login."
                 1
             | Some user ->
+                // Continue with rest of program
+                printfn "Welcome, %s!" user.Username
 
-                //  Show movies
+                // Show movies
                 let movies = MoviesService.getAllMovies()
                 printfn "\nAvailable Movies:"
                 movies |> List.iter (fun m -> printfn "%d: %s (%d min)" m.Id m.Title m.DurationMinutes)
 
-                //  Prompt user to select movie
+                // Prompt user to select movie
                 let movieId =
                     match promptInt "\nEnter Movie ID to see screenings: " with
                     | Some id -> id
                     | None -> failwith "No movie selected"
 
-                //  Show screenings for selected movie
+                // Show screenings for selected movie
                 let screenings = ScreeningService.getScreeningsForMovie movieId
                 if List.isEmpty screenings then
                     printfn "No screenings for this movie."
@@ -82,13 +106,13 @@ module Program =
                     screenings
                     |> List.iter (fun s -> printfn "%d: Hall %d at %O" s.Id s.HallId s.StartAt)
 
-                    //  Prompt user to select screening
+                    // Prompt user to select screening
                     let screeningId =
                         match promptInt "\nEnter Screening ID to book: " with
                         | Some id -> id
                         | None -> failwith "No screening selected"
 
-                    //  Load screening and hall
+                    // Load screening and hall
                     let screeningOpt = ScreeningService.getScreeningById screeningId
                     match screeningOpt with
                     | None ->

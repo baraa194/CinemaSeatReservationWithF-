@@ -6,10 +6,10 @@
     <RootNamespace>CinemaSeatReservationWithFSharp</RootNamespace>
   </PropertyGroup>
 	<ItemGroup>
-		<None Include="newupdates.sql" />
-
-		<Compile Include="Password.fs" />
-		<Compile Include="Db.fs" />
+		<!-- SQL files -->
+		<None Include="newupdates.sql">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 
 		<None Include="init.sql">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -18,13 +18,20 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 
-		<!-- Models -->
+		<!-- Core / infra -->
+		<Compile Include="Password.fs" />
+		<Compile Include="Db.fs" />
+
+		<!-- Models (MUST come before any code that references them) -->
 		<Compile Include="Models\User.fs" />
 		<Compile Include="Models\Role.fs" />
 		<Compile Include="Models\Seat.fs" />
 		<Compile Include="Models\Hall.fs" />
 		<Compile Include="Models\Movie.fs" />
 		<Compile Include="Models\Screening.fs" />
+
+		<!-- Modules that depend on models but not on services -->
+		<Compile Include="Auth.fs" />
 
 		<!-- Repositories -->
 		<Compile Include="Repositories\UserRepo.fs" />
@@ -34,7 +41,7 @@
 		<Compile Include="Repositories\MovieRepo.fs" />
 		<Compile Include="Repositories\ScreeningRepo.fs" />
 
-		<!-- Services -->
+		<!-- Services (depend on repos and Auth) -->
 		<Compile Include="Services\UserService.fs" />
 		<Compile Include="Services\SeatService.fs" />
 		<Compile Include="Services\HallService.fs" />
@@ -42,9 +49,10 @@
 		<Compile Include="Services\ScreeningService.fs" />
 		<Compile Include="Services\TicketService.fs" />
 
-		<!-- Program -->
+		<!-- Program last -->
 		<Compile Include="Program.fs" />
 	</ItemGroup>
+
 
 
 

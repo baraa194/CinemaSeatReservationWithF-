@@ -30,3 +30,5 @@ let registerUser (username:string) (email:string) (password:string) : Result<int
 let loginUser (username:string) (password:string) : AuthResult =
     login username password
 
+
+
