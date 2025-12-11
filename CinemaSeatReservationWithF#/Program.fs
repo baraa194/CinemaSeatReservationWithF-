@@ -9,17 +9,16 @@ open CinemaSeatReservationWithFSharp.Repositories.UserRepo
 open Dapper
 
 module Program =
-    
+
     let runInitSql () =
         use conn = getConnection()
         conn.Open()
         let sql = File.ReadAllText("init.sql")
         conn.Execute(sql) |> ignore
-        printfn "Database initialized successfully."
 
-    /// Prompt the user until they enter a valid integer seat id
-    let rec promptSeatId () : int option =
-        printf "\nEnter seat id to book : "
+    /// Prompt for integer input
+    let rec promptInt (message:string) : int option =
+        printf "%s" message
         match Console.ReadLine() with
         | null -> None
         | s when s.Trim().ToLower() = "q" -> None
@@ -27,89 +26,106 @@ module Program =
             match Int32.TryParse(s.Trim()) with
             | true, v -> Some v
             | false, _ ->
-                printfn "Invalid input. Please enter a seat number or 'q'."
-                promptSeatId()
+                printfn "Invalid input. Please enter a number or 'q'."
+                promptInt message
 
-    /// Test register + login flow (user enters inputs)
+    /// Register & login user
     let testRegisterAndLogin () =
-        printfn "=== Register / Login Test ==="
-
-        // Ask user for username
-        printf "Enter a username to register: "
+        printfn "=== Register / Login ==="
+        printf "Enter a username: "
         let username = Console.ReadLine()
-
         printf "Enter an email: "
         let email = Console.ReadLine()
-
-        // Ask user for password
         printf "Enter a password: "
         let password = Console.ReadLine()
 
-        printfn "\n--- Registering user... ---"
-
         match UserService.registerUser username email password with
-        | Ok newId ->
-            printfn "✔ Register succeeded. New user id = %d" newId
-        | Error msg ->
-            printfn "✘ Register failed: %s" msg
-
-        printfn "\n--- Testing login... ---"
+        | Ok newId -> printfn "✔ Registered. UserId=%d" newId
+        | Error msg -> printfn "✘ Register failed: %s" msg
 
         match UserService.loginUser username password with
-        | Success user ->
-            printfn "✔ Login succeeded. Welcome %s (id=%d)" user.Username user.Id
-        | InvalidCredentials ->
-            printfn "✘ Login failed: invalid credentials."
-        | NotFound ->
-            printfn "✘ Login failed: user not found."
-
-        printfn "=== End of Register/Login test ===\n"
+        | Success user -> printfn "✔ Logged in. Welcome %s (id=%d)" user.Username user.Id; Some user
+        | InvalidCredentials -> printfn "✘ Login failed: invalid credentials."; None
+        | NotFound -> printfn "✘ Login failed: user not found."; None
 
     [<EntryPoint>]
     let main argv =
         try
-            // Initialize database first
+            //  Initialize database
             runInitSql ()
 
-            // Run register/login test first
-            testRegisterAndLogin ()
-
-            // Load all seats and print count
-            let seats = SeatService.loadAllSeats()
-            printfn "Loaded %d seats from DB" (List.length seats)
-
-            // Get summary (available, booked)
-            let (avail, booked) = SeatService.getSummary()
-            printfn "Available: %d, Booked: %d" avail booked
-
-            // Render seat matrix
-            let matrix : byte[,] = SeatService.buildMatrix seats
-            SeatService.renderConsole matrix
-
-            // Ask user for seat id
-            match promptSeatId () with
+            //  Register & login user
+            match testRegisterAndLogin () with
             | None ->
-                printfn "No seat id provided. Exiting."
-            | Some seatIdToTryCreate ->
-                let (ticketOpt, refreshedAfterCreate) =
-                    SeatService.tryBookSeatAndCreateTicketService seatIdToTryCreate
+                printfn "Cannot continue without login."
+                1
+            | Some user ->
 
-                match ticketOpt with
-                | Some id ->
-                    printfn "Seat %d booked and ticket created: %A" seatIdToTryCreate id
-                    let availableSeats = SeatService.getavalSaets()
-                    printfn "Available seats after booking: %d" (List.length availableSeats)
-                | None ->
-                    printfn "Failed to book seat %d (maybe already booked or doesn't exist)." seatIdToTryCreate
-                    let availableSeats = SeatService.getavalSaets()
-                    printfn "Available seats after booking: %d" (List.length availableSeats)
+                //  Show movies
+                let movies = MoviesService.getAllMovies()
+                printfn "\nAvailable Movies:"
+                movies |> List.iter (fun m -> printfn "%d: %s (%d min)" m.Id m.Title m.DurationMinutes)
 
-            printfn "\nPress any key to exit..."
-            Console.ReadKey() |> ignore
-            0
+                //  Prompt user to select movie
+                let movieId =
+                    match promptInt "\nEnter Movie ID to see screenings: " with
+                    | Some id -> id
+                    | None -> failwith "No movie selected"
+
+                //  Show screenings for selected movie
+                let screenings = ScreeningService.getScreeningsForMovie movieId
+                if List.isEmpty screenings then
+                    printfn "No screenings for this movie."
+                    1
+                else
+                    printfn "\nAvailable Screenings:"
+                    screenings
+                    |> List.iter (fun s -> printfn "%d: Hall %d at %O" s.Id s.HallId s.StartAt)
+
+                    //  Prompt user to select screening
+                    let screeningId =
+                        match promptInt "\nEnter Screening ID to book: " with
+                        | Some id -> id
+                        | None -> failwith "No screening selected"
+
+                    //  Load screening and hall
+                    let screeningOpt = ScreeningService.getScreeningById screeningId
+                    match screeningOpt with
+                    | None ->
+                        printfn "Screening not found. Exiting."
+                        1
+                    | Some screening ->
+                        let hallOpt = HallService.getHallById screening.HallId
+                        match hallOpt with
+                        | None ->
+                            printfn "Hall not found. Exiting."
+                            1
+                        | Some hall ->
+                            let hallId = hall.Id
+                            let rows = hall.RowsCount
+                            let cols = hall.ColsCount
+
+                            let seats = SeatService.getAvailableSeatsForHall hallId
+                            printfn "\nAvailable seats in Hall %d:" hallId
+                            printfn "%d" (List.length seats)
+
+                            printfn "\nSeat layout for Hall %d:" hallId
+                            SeatService.renderMatrix hallId rows cols
+
+                            // Prompt user to pick seat
+                            match promptInt "\nEnter Seat ID to book (or 'q' to quit): " with
+                            | None ->
+                                printfn "No seat selected. Exiting."
+                                0
+                            | Some seatId ->
+                                match SeatService.tryBookSeat seatId screeningId with
+                                | Some ticketId ->
+                                    printfn "✔ Seat %d booked! Ticket ID: %A" seatId ticketId
+                                    0
+                                | None ->
+                                    printfn "✘ Failed to book seat %d." seatId
+                                    1
 
         with ex ->
             printfn "Unhandled exception: %s" ex.Message
-            printfn "\nPress any key to exit..."
-            Console.ReadKey() |> ignore
             1

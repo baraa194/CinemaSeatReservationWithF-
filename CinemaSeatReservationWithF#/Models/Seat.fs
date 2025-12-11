@@ -7,7 +7,7 @@ type SeatStatus =
  
 
 type Seat = {
-    SeatId: int option
+    SeatId: int 
     Row: int
     Col: int
     Status: SeatStatus
