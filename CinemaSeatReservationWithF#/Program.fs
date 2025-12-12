@@ -1,4 +1,4 @@
-﻿namespace CinemaSeatReservationWithFSharp
+namespace CinemaSeatReservationWithFSharp
 
 open System
 open System.IO
@@ -128,27 +128,28 @@ module Program =
                             let hallId = hall.Id
                             let rows = hall.RowsCount
                             let cols = hall.ColsCount
-
-                            let seats = SeatService.getAvailableSeatsForHall hallId
-                            printfn "\nAvailable seats in Hall %d:" hallId
+                            let screeningId = 1 
+                            let seats = SeatService.getAvailableSeatsForScreening screeningId
+                            printfn "\nAvailable seats for Screening %d:" screeningId
                             printfn "%d" (List.length seats)
 
-                            printfn "\nSeat layout for Hall %d:" hallId
-                            SeatService.renderMatrix hallId rows cols
+                            printfn "\nSeat layout for Screening %d:" screeningId
+                            SeatService.renderMatrix screeningId
 
-                            // Prompt user to pick seat
+                                
+
                             match promptInt "\nEnter Seat ID to book (or 'q' to quit): " with
                             | None ->
                                 printfn "No seat selected. Exiting."
                                 0
-                            | Some seatId ->
-                                match SeatService.tryBookSeat seatId screeningId with
-                                | Some ticketId ->
-                                    printfn "✔ Seat %d booked! Ticket ID: %A" seatId ticketId
-                                    0
-                                | None ->
-                                    printfn "✘ Failed to book seat %d." seatId
-                                    1
+                            | Some selectedSeatId ->
+                               match SeatService.tryBookSeat (selectedSeatId, screeningId) with
+                               | Some ticketId ->
+                                  printfn "✔ Seat %d booked! Ticket ID: %A"  selectedSeatId ticketId
+                                  0
+                               | None ->
+                                  printfn "✘ Failed to book seat %d."  selectedSeatId
+                                  1
 
         with ex ->
             printfn "Unhandled exception: %s" ex.Message
