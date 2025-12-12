@@ -1,4 +1,4 @@
-﻿namespace CinemaSeatReservationWithFSharp.Repositories
+namespace CinemaSeatReservationWithFSharp.Repositories
 
 open System
 open System.Data
@@ -18,22 +18,17 @@ module SeatRepository =
         | NotFound
         | Error of string
 
-    // -----------------------
-    // Connection helper
-    // -----------------------
+
     let private getConnection() : IDbConnection =
         Db.getConnection()
 
 
-    // ------------------------------
-    // Get single seat by Id
-    // ------------------------------
     let tryGetSeatById (seatId:int) : SeatDto option =
         use conn = getConnection()
         conn.Open()
 
         let sql =
-            "SELECT SeatId, HallId, RowNumber, ColNumber, Status 
+            "SELECT SeatId, ScreeningId, RowNumber, ColNumber, Status 
              FROM Seats 
              WHERE SeatId = @Id"
 
@@ -46,45 +41,38 @@ module SeatRepository =
         if box dto = null then None else Some dto
 
 
-    // -----------------------------------------------------
-    // Get all seats for a hall (includes booked + available)
-    // -----------------------------------------------------
-    let getAllSeatsForHall (hallId:int) : SeatDto list =
+    let getAllSeatsForScreening (screeningId:int) : SeatDto list =
         use conn = getConnection()
 
         let sql =
-            "SELECT SeatId, HallId, RowNumber, ColNumber, Status
+            "SELECT SeatId, ScreeningId, RowNumber, ColNumber, Status
              FROM Seats 
-             WHERE HallId = @HallId
+             WHERE ScreeningId = @ScreeningId
              ORDER BY RowNumber, ColNumber"
 
-        conn.Query<SeatDto>(sql, {| HallId = hallId |})
+        conn.Query<SeatDto>(sql, {| ScreeningId = screeningId |})
         |> Seq.toList
 
 
-    // -----------------------------------------------------
-    // Get available seats (filtered by hallId) - kept for convenience
-    // -----------------------------------------------------
-    let getAvailableSeats (hallId:int) : SeatDto list =
+ 
+    let getAvailableSeatsForScreening (screeningId:int) : SeatDto list =
         use conn = getConnection()
 
         let sql =
-            "SELECT SeatId, HallId, RowNumber, ColNumber, Status
+            "SELECT SeatId, ScreeningId, RowNumber, ColNumber, Status
              FROM Seats 
-             WHERE Status = @Status AND HallId = @HallId
+             WHERE Status = @Status AND ScreeningId = @ScreeningId
              ORDER BY RowNumber, ColNumber"
 
         conn.Query<SeatDto>(
             sql,
             {| Status = statusAvailable
-               HallId = hallId |}
+               ScreeningId = screeningId |}
         )
         |> Seq.toList
 
 
-    // -----------------------------
-    // Book seat for a screening (atomic)
-    // -----------------------------
+
     let tryBookSeatForScreening (seatId:int) (screeningId:int) : BookingResult =
         use conn = getConnection()
         conn.Open()
@@ -92,11 +80,10 @@ module SeatRepository =
         use tran = conn.BeginTransaction()
 
         try
-            // 1) ensure seat exists
             let exists =
                 conn.ExecuteScalar<int>(
-                    "SELECT COUNT(1) FROM Seats WHERE SeatId = @SeatId",
-                    {| SeatId = seatId |},
+                    "SELECT COUNT(1) FROM Seats WHERE SeatId = @SeatId AND ScreeningId = @ScreeningId",
+                    {| SeatId = seatId; ScreeningId = screeningId |},
                     transaction = tran
                 )
 
@@ -104,20 +91,17 @@ module SeatRepository =
                 tran.Rollback()
                 NotFound
             else
-                // 2) Update seat status (only if available)
                 let rowsUpdated =
                     conn.Execute(
-                        "UPDATE Seats SET Status = @Booked WHERE SeatId = @SeatId AND Status = @Available",
-                        {| Booked = statusBooked; SeatId = seatId; Available = statusAvailable |},
+                        "UPDATE Seats SET Status = @Booked WHERE SeatId = @SeatId AND ScreeningId = @ScreeningId AND Status = @Available",
+                        {| Booked = statusBooked; SeatId = seatId; ScreeningId = screeningId; Available = statusAvailable |},
                         transaction = tran
                     )
 
                 if rowsUpdated = 0 then
-                    // seat either already booked
                     tran.Rollback()
                     AlreadyBooked
                 else
-                    // 3) Insert ticket
                     let ticketId = Guid.NewGuid()
                     conn.Execute(
                         "INSERT INTO Tickets (TicketId, SeatId, ScreeningId, CreatedAt) 
@@ -134,9 +118,7 @@ module SeatRepository =
             Error ex.Message
 
 
-    // -----------------------
-    // Sanitize seat statuses
-    // -----------------------
+   
     let sanitizeStatuses () =
         use conn = getConnection()
 
@@ -148,15 +130,12 @@ module SeatRepository =
         conn.Execute(sql, {| Available = statusAvailable |}) |> ignore
 
 
-    // ----------------------------
-    // Build 2D matrix from seats list
-    // ----------------------------
+    
     let buildMatrix (seats: SeatDto list) (rows:int) (cols:int) : byte[,] =
         let matrix = Array2D.create rows cols statusAvailable
 
         seats
         |> List.iter (fun s ->
-            // guard in case DB has row/col outside expected range
             let r = s.RowNumber - 1
             let c = s.ColNumber - 1
             if r >= 0 && r < rows && c >= 0 && c < cols then
@@ -166,17 +145,29 @@ module SeatRepository =
         matrix
 
 
-    // ----------------------------
-    // Build matrix for a hall (uses all seats)
-    // ----------------------------
-    let buildMatrixForHall (hallId:int) (rows:int) (cols:int) : byte[,] =
-        let seats = getAllSeatsForHall hallId
-        buildMatrix seats rows cols
+ 
+    type HallSize = { RowsCount: int; ColsCount: int }
+
+    let buildMatrixForScreening (screeningId:int) : byte[,] =
+        use conn = getConnection()
+
+        let hall =
+            conn.QuerySingleOrDefault<HallSize>(
+                "SELECT h.RowsCount, h.ColsCount
+                 FROM Halls h
+                 INNER JOIN Screenings s ON s.HallId = h.Id
+                 WHERE s.Id = @ScreeningId",
+                {| ScreeningId = screeningId |}
+            )
+
+        if isNull (box hall) then
+            Array2D.create 0 0 statusAvailable
+        else
+            let seats = getAllSeatsForScreening screeningId
+            buildMatrix seats hall.RowsCount hall.ColsCount
 
 
-    // ----------------------------
-    // Render matrix visually in the console
-    // ----------------------------
+
     let renderConsole (matrix: byte[,]) =
         let rows = matrix.GetLength(0)
         let cols = matrix.GetLength(1)
@@ -185,17 +176,15 @@ module SeatRepository =
             for c in 0 .. cols - 1 do
                 let ch =
                     match matrix.[r, c] with
-                    | 0uy -> 'O'   // available
-                    | 1uy -> 'X'   // booked
+                    | 0uy -> 'O'   
+                    | 1uy -> 'X'   
                     | _   -> '?'
 
                 printf "%c " ch
             printfn ""
 
 
-    // ----------------------------
-    // Helper: build + render for a hall (convenience)
-    // ----------------------------
-    let renderMatrixForHall (hallId:int) (rows:int) (cols:int) =
-        let matrix = buildMatrixForHall hallId rows cols
+   
+    let renderMatrixForScreening (screeningId:int) =
+        let matrix = buildMatrixForScreening screeningId
         renderConsole matrix
