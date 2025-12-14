@@ -129,10 +129,10 @@ Unit tests help guarantee system stability and make future refactoring safer.
 
 This project was created as a **practice and learning project** to strengthen understanding of:
 
-* Database-driven systems
-* Concurrency problems and solutions
-* Clean code structure
-* Real-world booking system logic
+* Database-driven systems.
+* Concurrency problems and solutions.
+* Clean code structure.
+* Real-world booking system logic.
 
 ---
 
