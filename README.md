@@ -18,6 +18,8 @@ The application focuses on **real-time seat availability**, **safe concurrent bo
 
 ---
 
+
+
 ## 🧠 System Concept
 
 Each cinema hall contains a fixed seat layout represented by rows and columns. Every seat has a **status** that reflects its current state:
