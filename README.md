@@ -8,7 +8,7 @@ The application focuses on **real-time seat availability**, **safe concurrent bo
 
 ---
 
-## 🎯 Objectives
+##🎯 Objectives
 
 * Manage cinema halls and seat layouts efficiently
 * Allow users to view available seats in real time
