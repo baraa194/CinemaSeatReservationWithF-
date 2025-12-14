@@ -1,4 +1,4 @@
-namespace CinemaSeatReservationWithFSharp.Models
+﻿namespace CinemaSeatReservationWithFSharp.Models
 
 open System
 [<CLIMutable>]
@@ -12,3 +12,4 @@ type User = {
     RoleId: int
     CreatedAt: DateTime
 }
+

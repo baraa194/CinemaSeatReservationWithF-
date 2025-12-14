@@ -1,4 +1,4 @@
-module CinemaSeatReservationWithFSharp.Services.UserService
+﻿module CinemaSeatReservationWithFSharp.Services.UserService
 
 open System
 open CinemaSeatReservationWithFSharp.Models
@@ -29,5 +29,6 @@ let registerUser (username:string) (email:string) (password:string) : Result<int
 /// Returns AuthResult = Success User | InvalidCredentials | NotFound
 let loginUser (username:string) (password:string) : AuthResult =
     login username password
+
 
 

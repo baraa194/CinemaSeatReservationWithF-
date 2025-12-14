@@ -1,4 +1,4 @@
-module CinemaSeatReservationWithFSharp.Repositories.UserRepo
+﻿module CinemaSeatReservationWithFSharp.Repositories.UserRepo
 
 open System
 open System.Data
@@ -55,5 +55,6 @@ let login (username:string) (password:string) : AuthResult =
             Success user
         else
             InvalidCredentials
+
 
 

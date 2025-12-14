@@ -1,4 +1,4 @@
-namespace CinemaSeatReservationWithFSharp
+﻿namespace CinemaSeatReservationWithFSharp
 
 open System
 open System.Security.Cryptography
@@ -41,3 +41,4 @@ module Password =
                 for i in 0 .. computed.Length - 1 do
                     equal <- equal && (computed.[i] = storedHash.[i])
                 equal
+
