@@ -13,7 +13,6 @@ The application focuses on **real-time seat availability**, **safe concurrent bo
 * Manage cinema halls and seat layouts efficiently
 * Allow users to view available seats in real time
 * Prevent multiple users from booking the same seat
-* Ensure data consistency during concurrent operations
 * Practice clean architecture and separation of concerns
 
 ---
